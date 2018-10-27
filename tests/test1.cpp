@@ -71,32 +71,27 @@ int mymain()
         ps[i] = {r*cos(theta), r*sin(theta), p*sin(theta), -p*cos(theta)};
     }
 
-    RECT wnd_rect;
-    GetWindowRect(wnd.hwnd, &wnd_rect);
-    auto window_width = wnd_rect.right-wnd_rect.left;
-    auto window_height = wnd_rect.bottom-wnd_rect.top;
-    uint32 * bitmap = (uint32*) calloc(window_width*window_height, sizeof(uint32));
-    particle* particles = (particle*) malloc(2*N_MAX_PARTICLES*sizeof(particles));
-    int n_particles = 0;
-    int next_particle = 0;
-
-    int n_twirlies = 5;
-    for(int i = 0; i < n_twirlies; i++)
-    {
-        float r = 100;
-        float s = 100;
-        float x = cos(i*2*pi/n_twirlies);
-        float y = sin(i*2*pi/n_twirlies);
-        particles[n_particles++] = {r*x, r*y,
-                                    s*y, -s*x};
-    }
-    next_particle = n_particles;
-
     // srand(time(NULL));
 
     real dt = 0.01;
     while(update_window(wnd))
     {
+        {
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glUseProgram(pinfo_2d_flat.program);
+
+            real transform[] = {
+                1, 0, 0,
+                0, 1, 0,
+                0, 0, 1,
+            };
+            glUniformMatrix3fv(pinfo_2d_flat.uniforms[0], 1, true, transform);
+
+            real red = 1.0, green = 1.0, blue = 1.0;
+            glUniform3f(pinfo_2d_flat.uniforms[1], red, green, blue);
+            // glBegin(GL_TRIANGLES);
+        }
+
         t += dt;
         for(int i = 0; i < n_ps; i++)
         {
@@ -120,99 +115,16 @@ int mymain()
                 ps[i_spawn].v += {speed*cos(theta), speed*sin(theta)};
             }
 
-            // draw_circle(wnd,
-            //             0.2*ps[i].r.x, 0.2*ps[i].r.y,
-            //             0.005,
-            //             cos(omega_color*tau), cos(omega_color*(tau+pi*2/3)), cos(omega_color*(tau+pi*4/3)));
+            draw_circle(wnd,
+                        0.2*ps[i].r.x, 0.2*ps[i].r.y,
+                        0.005,
+                        cos(omega_color*tau), cos(omega_color*(tau+pi*2/3)), cos(omega_color*(tau+pi*4/3)));
         }
         if(next_ps > n_ps) n_ps = next_ps;
-        draw_circle(wnd, 0, 0, 0.05, 1, 1, 1);
+        // draw_circle(wnd, 0, 0, 0.05, 1, 1, 1);
 
-        {
-            memset(bitmap, 0, window_width*window_height*sizeof(bitmap[0]));
-
-            for(int p = 0; p < n_ps; p++)
-            {
-                int x = window_width/2+100*ps[p].r.x;
-                int y = window_height/2+100*ps[p].r.y;
-
-                if(x < 0 || x >= window_width ||
-                   y < 0 || y >= window_height) continue;
-                bitmap[x+window_width*y] |= 0x00FFFF;
-            }
-
-            for(int p = 0; p < n_particles; p++)
-            {
-                int x = window_width/2+particles[p].r.x;
-                int y = window_height/2+particles[p].r.y;
-
-                particles[p].r += dt*particles[p].v;
-
-                particles[p].v += dt*(1.0-0.01*sqrt(dot(particles[p].r, particles[p].r)))*(real2){particles[p].v.y, -particles[p].v.x};
-                particles[p].v *= 0.99999;
-
-                // float theta = (rand()%100)*(2.0f*pi/100.0f);
-                // float speed = (rand()%100)*(2.0f/100.0f)+0.1;
-                // particles[p].v += dt*(real2){speed*cos(theta), speed*sin(theta)};
-
-                if(next_particle < N_MAX_PARTICLES)
-                { //spawn new particles
-                    next_particle %= N_MAX_PARTICLES;
-                    int p_spawn = next_particle++;
-                    particles[p_spawn] = particles[p];
-                    float theta = (rand()%100)*(2.0f*pi/100.0f);
-                    float speed = (rand()%100)*(0.1f/100.0f)+0.1;
-                    particles[p_spawn].v *= 0.5;
-                    particles[p_spawn].v += {speed*cos(theta), speed*sin(theta)};
-                }
-
-                if(x < 0 || x >= window_width ||
-                   y < 0 || y >= window_height) continue;
-                bitmap[x+window_width*y] |= 0xFF0000;
-            }
-            if(next_particle > n_particles) n_particles = next_particle;
-
-            {
-                BITMAPINFO bmi;
-                bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
-                bmi.bmiHeader.biWidth = window_width;
-                bmi.bmiHeader.biHeight = -window_height;
-                bmi.bmiHeader.biPlanes = 1;
-                bmi.bmiHeader.biBitCount = 32;
-                bmi.bmiHeader.biCompression = BI_RGB;
-
-                StretchDIBits(GetDC(wnd.hwnd),
-                              (wnd_rect.right-wnd_rect.left-window_width)/2, (wnd_rect.bottom-wnd_rect.top-window_height)/2,
-                              window_width, window_height, //destination
-                              0, 0, window_width, window_height, //source
-                              bitmap,
-                              &bmi,
-                              DIB_RGB_COLORS,
-                              SRCCOPY);
-            }
-        }
+        // glEnd();
     }
-
-    // while(update_window(wnd))
-    // {
-    //     t += 0.0005;
-    //     int n_dots = 1280;
-    //     for(int i = 0; i < n_dots; i++)
-    //     {
-    //         real tau = t+i*2*pi/n_dots;
-    //         real omega_fast = 1+64;
-    //         real omega_color = 10;
-    //         real r_1 = 0.5, r_2 = 0.1;
-    //         real wiggly = 0.1*cos(100*t);
-    //         real omega_wiggle = 5;
-    //         draw_circle(wnd,
-    //                     r_1*cos(tau+wiggly*sin(omega_wiggle*tau))+r_2*cos(tau*omega_fast),
-    //                     r_1*sin(tau+wiggly*sin(omega_wiggle*tau))+r_2*sin(tau*omega_fast),
-    //                     0.01,
-    //                     cos(omega_color*tau), cos(omega_color*(tau+pi*2/3)), cos(omega_color*(tau+pi*4/3)));
-    //     }
-    //     draw_circle(wnd, 0, 0, 0.05, 1, 1, 1);
-    // }
 
     return 0;
 }

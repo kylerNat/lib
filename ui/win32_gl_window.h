@@ -258,7 +258,7 @@ window_t create_window(char* window_title, char* class_name, int width, int heig
     {
         glEnable(GL_FRAMEBUFFER_SRGB);
 
-        wglSwapIntervalEXT(1);
+        wglSwapIntervalEXT(0);
     }
 
     //TODO: figure this out
@@ -298,7 +298,7 @@ int update_window(window_t wnd)
     }
 
     HDC dc = GetDC(wnd.hwnd);
-    // SwapBuffers(dc);
+    SwapBuffers(dc);
 
     // RECT wnd_rect;
     // GetWindowRect(wnd.hwnd, &wnd_rect);
@@ -530,17 +530,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 void draw_circle(window_t wnd, real x, real y, real r, real red, real green, real blue)
 {
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glUseProgram(pinfo_2d_flat.program);
+    // glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    // glUseProgram(pinfo_2d_flat.program);
 
-    real transform[] = {
-        r, 0, x,
-        0, r, y,
-        0, 0, 1,
-    };
-    glUniformMatrix3fv(pinfo_2d_flat.uniforms[0], 1, true, transform);
+    // real transform[] = {
+    //     1, 0, 0,
+    //     0, 1, 0,
+    //     0, 0, 1,
+    // };
+    // glUniformMatrix3fv(pinfo_2d_flat.uniforms[0], 1, true, transform);
 
-    glUniform3f(pinfo_2d_flat.uniforms[1], red, green, blue);
+    // glUniform3f(pinfo_2d_flat.uniforms[1], red, green, blue);
 
     // glBegin(GL_TRIANGLE_FAN);
 
@@ -550,11 +550,11 @@ void draw_circle(window_t wnd, real x, real y, real r, real red, real green, rea
     // glVertex3f( 1.0, -1.0, -1.0);
 
     // glEnd();
-    glBegin(GL_POLYGON);
-    int n_lines = 10;
+    glBegin(GL_TRIANGLES);
+    int n_lines = 3;
     for(int i = 0; i < n_lines; i++)
     {
-        glVertex3f(cos(2*pi*i/n_lines), sin(2*pi*i/n_lines), 1);
+        glVertex3f(x+r*cos(2*pi*i/n_lines), y+r*sin(2*pi*i/n_lines), 1);
     }
     // glVertex3f(-1, -1, 0);
     // glVertex3f( 1, -1, 0);
