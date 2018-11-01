@@ -11,9 +11,14 @@ gl_load_operation(void, glDebugMessageCallbackARB, (GLDEBUGPROCARB callback, con
 
 gl_load_operation(void, glGenBuffers, (GLsizei n, const GLuint * buffers));
 gl_load_operation(void, glBufferData, (GLenum target, GLsizei ptrsize, const GLvoid * data, GLenum usage));
+gl_load_operation(void, glBufferSubData, (GLenum target, GLintptr offset, GLsizeiptr size, const GLvoid * data));
 gl_load_operation(void, glBindBuffer, (GLenum target, GLuint buffer));
 gl_load_operation(void, glVertexAttribPointer, (GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const GLvoid * pointer));
 gl_load_operation(void, glEnableVertexAttribArray, (GLuint index));
+gl_load_operation(void, glVertexAttribDivisor, (GLuint index, GLuint divisor));
+gl_load_operation(void, glDrawArraysInstanced, (GLenum mode, GLint first, GLsizei count, GLsizei primcount));
+
+gl_load_operation(void, glGetBufferParameteriv, (GLenum target, GLenum value, GLint * data));
 
 gl_load_operation(void, glGenVertexArrays, (GLsizei n, GLuint *arrays));
 gl_load_operation(void, glBindVertexArray, (GLuint array));
@@ -44,6 +49,7 @@ gl_load_operation(void, glUniformMatrix4fv, (GLint location, GLsizei count, GLbo
 
 gl_load_operation(void, glVertexAttrib2f, (GLuint index, GLfloat v0, GLfloat v1));
 gl_load_operation(void, glVertexAttrib3f, (GLuint index, GLfloat v0, GLfloat v1, GLfloat v2));
+gl_load_operation(void, glVertexAttrib4f, (GLuint index, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3));
 
 gl_load_operation(void, glPatchParameteri, (GLenum pname, GLint value));
 
