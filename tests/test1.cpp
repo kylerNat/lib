@@ -47,10 +47,10 @@ int mymain()
 {
     log_output("mymain\n");
 
-    init_memory(); //TODO: figure out what the user actually needs to do
+    init_memory(); //TODO: figure out what the user actually needs to specify, and make everything else happen automatically
     window_t wnd = create_window("Test Window", "test window");
 
-    load_default_shaders();
+    load_default_programs();
 
     log_output("created window\n");
     show_window(wnd);
@@ -73,45 +73,26 @@ int mymain()
 
     // srand(time(NULL));
 
-    GLuint circle_r_buffer;
-    GLuint circle_c_buffer;
-    {
-        circles = (real*) permalloc(N_MAX_CIRCLES*2*4*sizeof(circles[0]));
-        // circles = (real*) permalloc(N_MAX_CIRCLES*4*sizeof(circles[0]));
+    auto circle_draw = make_circle_drawing_buffer(N_MAX_CIRCLES, 3+2+3); //3 pos, 2 radius, 3, color
+    GLuint circle_buffer = circle_draw.gl_buffer;
+    GLuint index_buffer = circle_draw.gl_buffer;
+    circles = circle_draw.data_buffer;
 
-        glGenBuffers(1, &circle_r_buffer);
-        glBindBuffer(GL_ARRAY_BUFFER, circle_r_buffer);
-        glBufferData(GL_ARRAY_BUFFER, N_MAX_CIRCLES*4*sizeof(circles[0]), circles, GL_STREAM_DRAW);
+    // bind_vertex_and_index_buffers(vi_circle);
 
-        int gl_buffer_size;
-        glGetBufferParameteriv(GL_ARRAY_BUFFER, GL_BUFFER_SIZE, &gl_buffer_size);
-        log_output("circle_r_buffer size: ", gl_buffer_size, " (desired size = ", N_MAX_CIRCLES*4*sizeof(circles[0]), ")\n");
-
-        glGenBuffers(1, &circle_c_buffer);
-        glBindBuffer(GL_ARRAY_BUFFER, circle_c_buffer);
-        glBufferData(GL_ARRAY_BUFFER, N_MAX_CIRCLES*4*sizeof(circles[0]), circles, GL_STREAM_DRAW);
-
-        glGetBufferParameteriv(GL_ARRAY_BUFFER, GL_BUFFER_SIZE, &gl_buffer_size);
-        log_output("circle_c_buffer size: ", gl_buffer_size, "\n");
-    }
-
-    bind_vertex_and_index_buffers(vi_circle);
-    glVertexAttribDivisor(0, 0);
-    glVertexAttribDivisor(1, 1);
-    glVertexAttribDivisor(2, 1);
-    real dt = 0.01;
+    real dt = 0.1;
     while(update_window(wnd))
     {
         {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            glUseProgram(pinfo_2d_flat.program);
+            glUseProgram(pinfo_circle_2d.program);
 
             real transform[] = {
                 1, 0, 0,
                 0, 1, 0,
                 0, 0, 1,
             };
-            glUniformMatrix3fv(pinfo_2d_flat.uniforms[0], 1, true, transform);
+            glUniformMatrix3fv(pinfo_circle_2d.uniforms[0], 1, true, transform);
 
             n_circles = 0;
             // glBegin(GL_TRIANGLES);
@@ -121,14 +102,14 @@ int mymain()
         t += dt;
         for(int i = 0; i < n_ps; i++)
         {
-            real tau = i;// *2*pi/N_MAX_PARTICLES;
+            real tau = i%5;// *2*pi/N_MAX_PARTICLES;
             real omega_color = 2*pi/5;
 
             real old_energy = dot(ps[i].v, ps[i].v);
 
             ps[i].r += dt*ps[i].v;
             ps[i].v += dt*(
-                (1.0 - 0.5*sqrt(dot(ps[i].r, ps[i].r)))*(real2){ps[i].v.y, -ps[i].v.x}
+                (1.0 - 1*sqrt(dot(ps[i].r, ps[i].r)))*(real2){ps[i].v.y, -ps[i].v.x}
                 );
 
             energy = dot(ps[i].v, ps[i].v);
@@ -142,7 +123,7 @@ int mymain()
                 ps[i_spawn] = ps[i];
                 float theta = (rand()%100)*(2.0f*pi/100.0f);
                 float speed = 0.001*((rand()%100)*(0.1f/100.0f)+0.1);
-                ps[i_spawn].v *= 1.0-0.1*(rand()%100)*(1/100.0f);
+                ps[i_spawn].v *= 0.5;//1.0-0.1*(rand()%100)*(1/100.0f);
                 ps[i_spawn].v += {speed*cos(theta), speed*sin(theta)};
             }
 
@@ -154,45 +135,10 @@ int mymain()
 
         if(next_ps > n_ps) n_ps = next_ps;
 
-        // draw_circle(wnd, 1, 0, 0.05, 1, 1, 1);
+        draw_circle(wnd, 0, 0, 0.05, 1, 1, 1);
+        // for(float theta = 0; theta < 2*pi*10; theta += 2*pi/50) draw_circle(wnd, theta/10-1, sin(t+theta)/10, 0.005, 1, 1, 1);
 
-        {
-            // glEnd();
-
-            glEnableVertexAttribArray(1);
-            glEnableVertexAttribArray(2);
-            glBindBuffer(GL_ARRAY_BUFFER, circle_r_buffer);
-            glBufferData(GL_ARRAY_BUFFER, N_MAX_CIRCLES*2*4*sizeof(circles[0]), NULL, GL_STREAM_DRAW);
-            glBufferSubData(GL_ARRAY_BUFFER, 0, n_circles*32, (void*) circles);
-            glVertexAttribPointer(1,
-                                  4,
-                                  GL_FLOAT,
-                                  false,
-                                  32,
-                                  (void*) 0);
-            glVertexAttribPointer(2,
-                                  4,
-                                  GL_FLOAT,
-                                  false,
-                                  32,
-                                  (void*) 16);
-
-            // glEnableVertexAttribArray(2);
-            // glBindBuffer(GL_ARRAY_BUFFER, circle_c_buffer);
-            // glBufferData(GL_ARRAY_BUFFER, N_MAX_CIRCLES*4*sizeof(circles[0]), NULL, GL_STREAM_DRAW);
-            // glBufferSubData(GL_ARRAY_BUFFER, 0, n_circles*16, (void*) circles);
-            // glVertexAttribPointer(2,
-            //                       4,
-            //                       GL_FLOAT,
-            //                       false,
-            //                       32,
-            //                       (void*) 16);
-
-            glVertexAttribDivisor(0, 0);
-            glVertexAttribDivisor(1, 1);
-            glVertexAttribDivisor(2, 1);
-            glDrawArraysInstanced(GL_POLYGON, 0, vi_circle.n_index_buffer, n_circles);
-        }
+        end_draw_circles(N_MAX_CIRCLES, n_circles, circle_buffer, index_buffer, circles);
     }
 
     return 0;

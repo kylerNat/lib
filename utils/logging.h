@@ -10,14 +10,17 @@ struct print_format
     int argument;
 };
 
+typedef int (*printfn_t)(const char* format, ...);
+
 struct printer
 {
     int count;
+    printfn_t print_function;
     print_format format;
 };
 
 #define default_print_format {1}
-printer __printer__ = {0, default_print_format};
+printer __printer__ = {0, printf, default_print_format};
 
 printer operator,(printer p, print_format pf)
 {
@@ -25,32 +28,37 @@ printer operator,(printer p, print_format pf)
     return p;
 }
 
+//TODO: there's probably a better way to do this
+printer operator,(printer p, printfn_t f)
+{
+    __printer__.print_function = f;
+    return __printer__;
+}
+
 #define define_printer(arg, print_code)                         \
     printer operator,(printer p, arg)                           \
     {                                                           \
         for(int __i = 0; __i < p.format.argument; __i++)        \
         {                                                       \
-            p.count += print_code;                              \
+            p.count += p.print_function print_code;             \
         }                                                       \
         p.format = default_print_format;                        \
         return p;                                               \
     }
 
 
-define_printer(const char* s, printf("%s", s));
+define_printer(const char* s, ("%s", s));
 
-define_printer(char* s, printf("%s", s));
+define_printer(char* s, ("%s", s));
 
-define_printer(char c, printf("%.1s", &c));
+define_printer(char c, ("%.1s", &c));
 
-define_printer(int a, printf("%d", a));
-define_printer(uint a, printf("%u", a));
-define_printer(uint64 a, printf("%llu", a));
+define_printer(int a, ("%d", a));
+define_printer(uint a, ("%u", a));
+define_printer(uint64 a, ("%llu", a));
 
-define_printer(float a, printf("%f", a));
-define_printer(double a, printf("%f", a));
-
-define_printer(DWORD a, printf("%li", a));
+define_printer(float a, ("%f", a));
+define_printer(double a, ("%f", a));
 
 /* define_printer(bool a, printf("%s", a ? "true" : "false")); */
 

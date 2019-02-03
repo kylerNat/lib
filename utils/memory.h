@@ -1,23 +1,40 @@
 #ifndef MEMORY
 #define MEMORY
 
+#ifndef platform_big_alloc
+#include <stdlib.h>
+#define platform_big_alloc(size) malloc(size)
+#endif
+
 #include <utils/misc.h>
 
 byte* free_memory;
 size_t free_memory_size;
 
-void init_memory()
+byte* free_memory_start;
+byte* free_memory_end;
+
+int init_memory()
 {
     free_memory_size = 1*gigabyte;
     free_memory = (byte*) platform_big_alloc(free_memory_size);
+    free_memory_start = free_memory;
+    free_memory_end = free_memory+free_memory_size;
     assert(free_memory, "could not allocate free memory pool");
+    return 0;
 }
+static int _ = init_memory();
 
-void* permalloc(uint size)
+void* permalloc(size_t size)
 {
     void* out = free_memory;
     free_memory += size;
     return out;
+}
+
+size_t available_free_memory()
+{
+    return free_memory-free_memory_start;
 }
 
 // #define MAX_MEMORY_BLOCKS 100

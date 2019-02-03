@@ -13,6 +13,8 @@
 #include <utils/misc.h>
 #include <utils/logging.h>
 
+define_printer(DWORD a, ("%li", a));
+
 #define platform_big_alloc(memory_size) VirtualAlloc(0, memory_size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
 #include <utils/memory.h>
 // #include <maths/maths.h>
@@ -257,6 +259,8 @@ window_t create_window(char* window_title, char* class_name, int width, int heig
 
     {
         glEnable(GL_FRAMEBUFFER_SRGB);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         wglSwapIntervalEXT(0);
     }
@@ -531,17 +535,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 #define N_MAX_CIRCLES 10000000
 int n_circles;
 real* circles;
-// real* circles_c;
 
 void draw_circle(window_t wnd, real x, real y, real r, real red, real green, real blue)
 {
     circles[8*n_circles+0] = x;
     circles[8*n_circles+1] = y;
     circles[8*n_circles+2] = 0;
+
     circles[8*n_circles+3] = r;
-    // circles[8*n_circles+4] = red;
-    // circles[8*n_circles+5] = green;
-    // circles[8*n_circles+6] = blue;
+    // circles[8*n_circles+4] = 0;
+
+    // circles[8*n_circles+5] = red;
+    // circles[8*n_circles+6] = green;
+    // circles[8*n_circles+7] = blue;
     // circles[8*n_circles+7] = 1; //alpha
     n_circles++;
 
@@ -550,15 +556,15 @@ void draw_circle(window_t wnd, real x, real y, real r, real red, real green, rea
     // glVertex3f(0, 0, 1);
 
     // glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    // glUseProgram(pinfo_2d_flat.program);
+    // glUseProgram(pinfo_flat_2d.program);
 
     // real transform[] = {
     //     r, 0, x,
     //     0, r, y,
     //     0, 0, 1,
     // };
-    // glUniformMatrix3fv(pinfo_2d_flat.uniforms[0], 1, true, transform);
-    // glUniform3f(pinfo_2d_flat.uniforms[1], red, green, blue);
+    // glUniformMatrix3fv(pinfo_flat_2d.uniforms[0], 1, true, transform);
+    // glUniform3f(pinfo_flat_2d.uniforms[1], red, green, blue);
 
     // glBegin(GL_POLYGON);
     // int n_lines = 3;

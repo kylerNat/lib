@@ -3,11 +3,19 @@
 
 #include <stdint.h>
 
-#define STR_(a) #a
-#define STR(a) STR_(a)
+#define NaN (0.0/0)
+
+#define sq(a) ((a)*(a))
+
+// #define STR_(a) #a
+// #define STR(a) STR_(a)
+#define STR_(...) #__VA_ARGS__
+#define STR(...) STR_(__VA_ARGS__)
 
 #define CONCAT_(a, b) a##b
 #define CONCAT(a, b) CONCAT_(a, b)
+
+#define NOPAREN(...) __VA_ARGS__
 
 #define NARGS(...) NARGS_(__VA_ARGS__, BACK_SEQ)
 #define NARGS_(...) NARGS__(__VA_ARGS__)
