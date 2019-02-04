@@ -1,7 +1,6 @@
-enum render_commands
+struct circle_render_info
 {
-    rc_circles, //positions radii
-    rc_squares, //positions radii
-    rc_polygons, //n_vertices verteces
-    rc_n_commands,
+    real3 X;
+    real r;
+    real4 color;
 };

@@ -10,7 +10,7 @@
 
 struct program_attribute
 {
-    GLint size; //dimension
+    GLint dim; //dimension
     GLenum type;
 };
 
@@ -18,11 +18,11 @@ struct program_info
 {
     GLuint program;
 
-    int n_attribs;
     program_attribute* attribs;
+    int n_attribs;
 
-    int n_uniforms;
     GLuint* uniforms;
+    int n_uniforms;
 };
 
 struct shader_source
@@ -313,13 +313,13 @@ define_program(
         ));
 
 define_program(
-    circle_2d,
+    circle,
     ( //vertex attributes
     {3, GL_FLOAT},
     {3, GL_FLOAT},
-    {2, GL_FLOAT},
-    {2, GL_FLOAT}
-        ),
+    {1, GL_FLOAT},
+    {4, GL_FLOAT},
+        ), //TODO: reduce repetition of this stuff
     ( //uniforms
         "t",
         "tex"),
@@ -327,10 +327,12 @@ define_program(
     {GL_VERTEX_SHADER, "<default 2d circle vertex shader>",
             DEFAULT_HEADER SHADER_SOURCE(
                 /////////////////<default 2d circle vertex shader>/////////////////
-                layout(location = 0) in vec3 r;
-                layout(location = 1) in vec3 R;
-                layout(location = 2) in float a;
+                layout(location = 0) in vec3 x;
+                layout(location = 1) in vec3 X;
+                layout(location = 2) in float r;
+                layout(location = 3) in vec4 c;
 
+                smooth out vec4 color;
                 smooth out vec2 uv;
                 smooth out float sharpness;
 
@@ -338,9 +340,10 @@ define_program(
 
                 void main()
                 {
-                    gl_Position.xyz = t*(r*a+R);
-                    uv = 0.5*(r.xy+vec2(1,1));// vert_uv;
-                    sharpness = a;
+                    gl_Position.xyz = t*(x*r+X);
+                    uv = 0.5*(x.xy+vec2(1,1));// vert_uv;
+                    sharpness = r;
+                    color = c;
                 }
                 /*/////////////////////////////////////////////////////////////*/)},
     {GL_FRAGMENT_SHADER, "<default 2d circle fragment shader>",
@@ -348,6 +351,7 @@ define_program(
                 ////////////////<default 2d circle fragment shader>////////////////
                 layout(location = 0) out vec4 frag_color;
 
+                smooth in vec4 color;
                 smooth in vec2 uv;
                 smooth in float sharpness;
 
@@ -356,123 +360,31 @@ define_program(
                 void main()
                 {
                     vec2 r = 2*(uv-vec2(0.5, 0.5));
-                    frag_color.rgb = vec3(1,1,1);
+                    frag_color = color;
                     //TODO: the sharpness scaling should be resolution dependent
-                    frag_color.a = smoothstep(1.0, 1.0-1.0/(250*sharpness), length(r));
+                    frag_color.a *= smoothstep(1.0, 1.0-1.0/(250*sharpness), length(r));
                 }
                 /*/////////////////////////////////////////////////////////////*/)}
         ));
 
 program_info pinfo_flat_2d;
 program_info pinfo_textured_2d;
-program_info pinfo_circle_2d;
+program_info pinfo_circle;
 
 void load_default_programs()
 {
     pinfo_flat_2d = init_flat_2d_program();
     pinfo_textured_2d = init_textured_2d_program();
-    pinfo_circle_2d = init_circle_2d_program();
-}
-
-struct circle_drawing_buffer
-{
-    GLuint gl_buffer;
-    GLuint index_buffer;
-    real* data_buffer;
-    size_t buffer_size;
-};
-
-circle_drawing_buffer make_circle_drawing_buffer(uint n_max_circles, uint n_circle_properties)
-{
-    GLuint point_buffer;
-    GLuint index_buffer;
-    size_t buffer_size = 4*3*sizeof(real) + n_max_circles*n_circle_properties*sizeof(real);
-
-    real* circles = (real*) permalloc(buffer_size);
-
-    glGenBuffers(1, &point_buffer);
-    glBindBuffer(GL_ARRAY_BUFFER, point_buffer);
-    // glBufferData(GL_ARRAY_BUFFER, buffer_size, circles, GL_STREAM_DRAW);
-
-    glBufferData(GL_ARRAY_BUFFER, n_max_circles*(3+2+3)*sizeof(circles[0]), NULL, GL_STREAM_DRAW);
-    real vb[] = {-1,-1,+1,
-                 -1,+1,+1,
-                 +1,+1,+1,
-                 +1,-1,+1};
-    glBufferSubData(GL_ARRAY_BUFFER, 0 /*offset*/, 4*3*sizeof(real), (void*) vb);
-
-    uint16 ib_data[] = {0,1,2,3};
-    glGenBuffers(1, &index_buffer);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, 4*4, ib_data, GL_STATIC_DRAW);
-
-    return {point_buffer, index_buffer, circles, buffer_size};
-}
-
-
-void end_draw_circles(uint n_max_circles, uint n_circles, GLuint circle_buffer, GLuint index_buffer, real* circles)
-{
-    // glEnd();
-
-    glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(1);
-    glEnableVertexAttribArray(2);
-    // glEnableVertexAttribArray(3);
-    glBindBuffer(GL_ARRAY_BUFFER, circle_buffer);
-    glBufferSubData(GL_ARRAY_BUFFER, 12*4 /*offset*/, n_circles*(3+2*3)*(sizeof(circles[0])), (void*) circles);
-    glVertexAttribPointer(0,
-                          3,
-                          GL_FLOAT,
-                          false,
-                          0,
-                          (void*) 0);
-    glVertexAttribPointer(1,
-                          4,
-                          GL_FLOAT,
-                          false,
-                          (3+2+3)*sizeof(circles[0]),
-                          (void*) (12*4));
-    glVertexAttribPointer(2,
-                          4,
-                          GL_FLOAT,
-                          false,
-                          (3+2+3)*sizeof(circles[0]),
-                          (void*) (12*4+3*4));
-    // glVertexAttribPointer(3,
-    //                       4,
-    //                       GL_FLOAT,
-    //                       false,
-    //                       (3+2+3)*sizeof(circles[0]),
-    //                       (void*) ((3+2)*4));
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer);
-
-    glVertexAttribDivisor(0, 0);
-    glVertexAttribDivisor(1, 1);
-    glVertexAttribDivisor(2, 1);
-    // glVertexAttribDivisor(3, 0);
-    glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, n_circles);
+    pinfo_circle = init_circle_program();
 }
 
 struct attribute_value
 {
     GLuint index;
     int divisor;
+    int stride;
+    int offset_width;
 };
-
-struct render_task
-{
-    program_info pinfo;
-    attribute_value* attribs;
-    int n_attribs;
-    void** buffer_data;
-    uint* n_buffer_elements;
-    uint* buffer_element_size;
-    uint n_buffers;
-};
-
-render_task* render_queue;
-int n_render_queue;
 
 uint gl_get_type_size(GLenum type)
 {
@@ -495,59 +407,126 @@ uint gl_get_type_size(GLenum type)
     }
 }
 
+#define N_GENERAL_BUFFERS 2
+#define GENERAL_BUFFER_SIZE 100*megabyte
+GLuint gl_general_buffers[N_GENERAL_BUFFERS];
 
-#define N_MAX_BUFFERS 10
-GLuint buffers[N_MAX_BUFFERS];
-
-void init_render_buffers()
+void gl_init_general_buffers()
 {
-    glGenBuffers(N_MAX_BUFFERS, buffers);
-    // glBufferData(GL_ARRAY_BUFFER, max_data_size, NULL, GL_STREAM_DRAW);
-    // glBufferSubData(GL_ARRAY_BUFFER, 0 /*offset*/, data_size, task.data);
+    glGenBuffers(N_GENERAL_BUFFERS, gl_general_buffers);
+    for(int i = 0; i < N_GENERAL_BUFFERS; i++)
+    {
+        glBindBuffer(GL_ARRAY_BUFFER, gl_general_buffers[i]);
+        glBufferData(GL_ARRAY_BUFFER, GENERAL_BUFFER_SIZE, NULL, GL_STREAM_DRAW);
+    }
 }
 
-void flush_render_queue()
+void draw_circles(circle_render_info* circles, int n_circles)
 {
-    for(int i = 0; i < n_render_queue; i++)
+    GLuint circle_buffer = gl_general_buffers[0];
+
+    glUseProgram(pinfo_circle.program);
+
+    //TODO: let this be controlled
+    real transform[] = {
+        1, 0, 0,
+        0, 1, 0,
+        0, 0, 1,
+    };
+    glUniformMatrix3fv(pinfo_circle.uniforms[0], 1, true, transform);
+
+
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
+    glEnableVertexAttribArray(3);
+
+    glBindBuffer(GL_ARRAY_BUFFER, circle_buffer);
+
+    int offset = 0;
+    int layout_location = 0;
+
+    real vb[] = {-1,-1,+1,
+                 -1,+1,+1,
+                 +1,+1,+1,
+                 +1,-1,+1};
+    glBufferSubData(GL_ARRAY_BUFFER, offset, sizeof(vb), (void*) vb);
+
+    glVertexAttribPointer(layout_location++,
+                          3,
+                          GL_FLOAT,
+                          false,
+                          0,
+                          (void*) (offset));
+    offset += sizeof(vb);
+
+    glBufferSubData(GL_ARRAY_BUFFER, offset, n_circles*sizeof(circles[0]), (void*) circles);
+
+    glVertexAttribPointer(layout_location++,
+                          3,
+                          GL_FLOAT,
+                          false,
+                          sizeof(circles[0]),
+                          (void*) (offset));
+    offset += sizeof(real3);
+    glVertexAttribPointer(layout_location++,
+                          1,
+                          GL_FLOAT,
+                          false,
+                          sizeof(circles[0]),
+                          (void*) (offset));
+    offset += sizeof(real);
+    glVertexAttribPointer(layout_location++,
+                          4,
+                          GL_FLOAT,
+                          false,
+                          sizeof(circles[0]),
+                          (void*) (offset));
+    offset += sizeof(real4);
+
+    glVertexAttribDivisor(0, 0);
+    glVertexAttribDivisor(1, 1);
+    glVertexAttribDivisor(2, 1);
+    glVertexAttribDivisor(3, 1);
+    glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, n_circles);
+}
+
+void gl_push_render_data(program_info pinfo,
+                         attribute_value* attribs,
+                         int n_attribs,
+
+                         void** buffer_data,
+                         GLenum* targets,
+                         GLuint* buffers,
+                         uint* buffer_sizes,
+                         uint n_buffers)
+{
+    glUseProgram(pinfo.program);
+
+    //put data in buffers
+    for(int b = 0; b < n_buffers; b++)
     {
-        // glEnd();
-        render_task task = render_queue[i];
-
-        //put data in buffers
-        for(int b = 0; b < task.n_buffers; b++)
-        {
-            uint data_size = task.buffer_element_size[b]*task.n_buffer_elements[b];
-            glBindBuffer(GL_ARRAY_BUFFER, buffers[b]);
-            glBufferData(GL_ARRAY_BUFFER, data_size, task.buffer_data[b], GL_STREAM_DRAW); //TODO: allow control over draw mode
-        }
-
-        int attrib_offset = 0;
-        for(int a = 0; a < task.n_attribs; a++)
-        {
-            auto index = task.attribs[a].index;
-            glVertexAttribDivisor(index, task.attribs[a].divisor);
-            if(task.attribs[a].divisor == 1)
-            {
-                glEnableVertexAttribArray(index);
-                glVertexAttribPointer(index,
-                                      task.pinfo.attribs[index].size,
-                                      task.pinfo.attribs[index].type,
-                                      false, //normalize
-                                      0, //stride between consecutive elements
-                                      (void*) (attrib_offset));
-                attrib_offset += task.pinfo.attribs[index].size*gl_get_type_size(task.pinfo.attribs[index].type);
-            }
-            else if(task.attribs[a].divisor == 0)
-            {
-                //TODO:
-            }
-            else
-            {
-                log_error("Unsupported value for glVertexAttribDivisor:", task.attribs[a].divisor, "\nSorry :(");
-            }
-        }
-        glDrawArraysInstanced(GL_POLYGON, 0, vi_circle.n_index_buffer, task.n_buffer_elements[0]);
+        uint data_size = buffer_sizes[b];
+        glBindBuffer(targets[b], buffers[b]);
+        if(buffer_data[b]) glBufferSubData(targets[b], 0 /*offset*/, data_size, buffer_data[b]);
     }
+
+    int attrib_offset = 0;
+    for(int a = 0; a < n_attribs; a++)
+    {
+        auto index = attribs[a].index;
+        glVertexAttribDivisor(index, attribs[a].divisor);
+        glEnableVertexAttribArray(index);
+        glVertexAttribPointer(index,
+                              pinfo.attribs[index].dim,
+                              pinfo.attribs[index].type,
+                              false, //normalize
+                              attribs[a].stride, //stride between consecutive elements
+                              (void*) (attrib_offset));
+        attrib_offset += attribs[a].offset_width;
+    }
+
+    // glDrawArraysInstanced(GL_POLYGON, 0, vi_circle.n_index_buffer, n_buffer_elements[0]);
 }
 
 #endif
