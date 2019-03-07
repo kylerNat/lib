@@ -124,7 +124,7 @@ int mymain()
         // };
         // for(real theta = 0; theta < 2*pi*10; theta += 2*pi/50) draw_circle(wnd, theta/10-1, sin(t+theta)/10, 0.005, 1, 1, 1);
 
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0); //TODO: move this somewhere else
         draw_circles(circles, n_circles);
     }
 

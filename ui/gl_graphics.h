@@ -424,7 +424,7 @@ void gl_init_general_buffers()
 #define add_attribute_common(dim, gl_type, do_normalize, stride, offset_advance, divisor) \
     glEnableVertexAttribArray(layout_location);                         \
     glVertexAttribPointer(layout_location, dim, gl_type, do_normalize, stride, (void*) (offset)); \
-    offset += offset_advance;
+    offset += offset_advance;                                           \
     glVertexAttribDivisor(layout_location++, divisor);
 
 #define add_contiguous_attribute(dim, gl_type, do_normalize, stride, offset_advance) \
@@ -470,6 +470,7 @@ void draw_circles(circle_render_info* circles, int n_circles)
     glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, n_circles);
 }
 
+#if 0
 GLuint gl_new_cloud_texture()
 {
     //create and allocate texture
@@ -519,5 +520,6 @@ void draw_cloud(real* cloud)
 
     glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, n_circles);
 }
+#endif
 
 #endif
