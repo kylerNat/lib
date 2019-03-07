@@ -386,7 +386,7 @@ struct attribute_value
     int offset_width;
 };
 
-uint gl_get_type_size(GLenum type)
+inline uint gl_get_type_size(GLenum type)
 {
     switch(type)
     {
@@ -421,6 +421,18 @@ void gl_init_general_buffers()
     }
 }
 
+#define add_attribute_common(dim, gl_type, do_normalize, stride, offset_advance, divisor) \
+    glEnableVertexAttribArray(layout_location);                         \
+    glVertexAttribPointer(layout_location, dim, gl_type, do_normalize, stride, (void*) (offset)); \
+    offset += offset_advance;
+    glVertexAttribDivisor(layout_location++, divisor);
+
+#define add_contiguous_attribute(dim, gl_type, do_normalize, stride, offset_advance) \
+    add_attribute_common(dim, gl_type, do_normalize, stride, offset_advance, 0);
+
+#define add_interleaved_attribute(dim, gl_type, do_normalize, stride)   \
+    add_attribute_common(dim, gl_type, do_normalize, stride, dim*gl_get_type_size(gl_type), 1);
+
 void draw_circles(circle_render_info* circles, int n_circles)
 {
     GLuint circle_buffer = gl_general_buffers[0];
@@ -435,98 +447,77 @@ void draw_circles(circle_render_info* circles, int n_circles)
     };
     glUniformMatrix3fv(pinfo_circle.uniforms[0], 1, true, transform);
 
-
-    glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(1);
-    glEnableVertexAttribArray(2);
-    glEnableVertexAttribArray(3);
-
     glBindBuffer(GL_ARRAY_BUFFER, circle_buffer);
 
-    int offset = 0;
+    size_t offset = 0;
     int layout_location = 0;
 
-    real vb[] = {-1,-1,+1,
-                 -1,+1,+1,
-                 +1,+1,+1,
-                 +1,-1,+1};
+    //buffer square coord data (bounding box of circle)
+    real vb[] = {-1,-1,0,
+                 -1,+1,0,
+                 +1,+1,0,
+                 +1,-1,0};
     glBufferSubData(GL_ARRAY_BUFFER, offset, sizeof(vb), (void*) vb);
 
-    glVertexAttribPointer(layout_location++,
-                          3,
-                          GL_FLOAT,
-                          false,
-                          0,
-                          (void*) (offset));
-    offset += sizeof(vb);
+    add_contiguous_attribute(3, GL_FLOAT, false, 0, sizeof(vb)); //vertex positions
 
+    //buffer circle data
     glBufferSubData(GL_ARRAY_BUFFER, offset, n_circles*sizeof(circles[0]), (void*) circles);
+    add_interleaved_attribute(3, GL_FLOAT, false, sizeof(circles[0])); //center position
+    add_interleaved_attribute(1, GL_FLOAT, false, sizeof(circles[0])); //radius
+    add_interleaved_attribute(4, GL_FLOAT, false, sizeof(circles[0])); //RGBA color
 
-    glVertexAttribPointer(layout_location++,
-                          3,
-                          GL_FLOAT,
-                          false,
-                          sizeof(circles[0]),
-                          (void*) (offset));
-    offset += sizeof(real3);
-    glVertexAttribPointer(layout_location++,
-                          1,
-                          GL_FLOAT,
-                          false,
-                          sizeof(circles[0]),
-                          (void*) (offset));
-    offset += sizeof(real);
-    glVertexAttribPointer(layout_location++,
-                          4,
-                          GL_FLOAT,
-                          false,
-                          sizeof(circles[0]),
-                          (void*) (offset));
-    offset += sizeof(real4);
-
-    glVertexAttribDivisor(0, 0);
-    glVertexAttribDivisor(1, 1);
-    glVertexAttribDivisor(2, 1);
-    glVertexAttribDivisor(3, 1);
     glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, n_circles);
 }
 
-void gl_push_render_data(program_info pinfo,
-                         attribute_value* attribs,
-                         int n_attribs,
-
-                         void** buffer_data,
-                         GLenum* targets,
-                         GLuint* buffers,
-                         uint* buffer_sizes,
-                         uint n_buffers)
+GLuint gl_new_cloud_texture()
 {
-    glUseProgram(pinfo.program);
+    //create and allocate texture
+    GLuint density_texture;
+    glGenTextures(1, &density_texture);
+    glBindTexture(GL_TEXTURE_3D, density_texture);
+    glTexStorage3D(GL_TEXTURE_3D, 1, GL_R16_SNORM, Nx, Ny, Nz);
 
-    //put data in buffers
-    for(int b = 0; b < n_buffers; b++)
-    {
-        uint data_size = buffer_sizes[b];
-        glBindBuffer(targets[b], buffers[b]);
-        if(buffer_data[b]) glBufferSubData(targets[b], 0 /*offset*/, data_size, buffer_data[b]);
-    }
+    //upload data, TODO: I will probably want to just integrate this with parallel computation stuff
+    glTexSubImage3D(GL_TEXTURE_3D, 0, x0, y0, z0, Deltax, Deltay, Deltaz, GL_RED, GL_SHORT, density_data);
+}
 
-    int attrib_offset = 0;
-    for(int a = 0; a < n_attribs; a++)
-    {
-        auto index = attribs[a].index;
-        glVertexAttribDivisor(index, attribs[a].divisor);
-        glEnableVertexAttribArray(index);
-        glVertexAttribPointer(index,
-                              pinfo.attribs[index].dim,
-                              pinfo.attribs[index].type,
-                              false, //normalize
-                              attribs[a].stride, //stride between consecutive elements
-                              (void*) (attrib_offset));
-        attrib_offset += attribs[a].offset_width;
-    }
+//draws a density cloud
+void draw_cloud(real* cloud)
+{
+    GLuint cloud_buffer = gl_general_buffers[0];
 
-    // glDrawArraysInstanced(GL_POLYGON, 0, vi_circle.n_index_buffer, n_buffer_elements[0]);
+    glUseProgram(pinfo_cloud.program);
+
+    //TODO: let this be controlled
+    real transform[] = {
+        1, 0, 0,
+        0, 1, 0,
+        0, 0, 1,
+    };
+    glUniformMatrix3fv(pinfo_cloud.uniforms[0], 1, true, transform);
+
+    glBindBuffer(GL_ARRAY_BUFFER, cloud_buffer);
+
+    size_t offset = 0;
+    int layout_location = 0;
+
+    //buffer square coord data (bounding box of cloud)
+    real vb[] = {-1,-1,0,
+                 -1,+1,0,
+                 +1,+1,0,
+                 +1,-1,0};
+    glBufferSubData(GL_ARRAY_BUFFER, offset, sizeof(vb), (void*) vb);
+
+    add_contiguous_attribute(3, GL_FLOAT, false, 0, sizeof(vb));
+
+    //buffer cloud data
+    glBufferSubData(GL_ARRAY_BUFFER, offset, n_cloud*sizeof(circles[0]), (void*) circles);
+    add_interleaved_attribute(3, GL_FLOAT, false, sizeof(cloud[0]));
+    add_interleaved_attribute(1, GL_FLOAT, false, sizeof(cloud[0]));
+    add_interleaved_attribute(4, GL_FLOAT, false, sizeof(cloud[0]));
+
+    glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, n_circles);
 }
 
 #endif

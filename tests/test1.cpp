@@ -1,42 +1,6 @@
 #include <ui/win32_gl_window.h>
 #include <maths/maths.h>
 
-// struct real2
-// {
-//     real x;
-//     real y;
-// };
-
-// real2 operator+(real2 a, real2 b)
-// {
-//     return {a.x+b.x, a.y+b.y};
-// }
-
-// real2 operator+=(real2& a, real2 b)
-// {
-//     return a=a+b;
-// }
-
-// real2 operator*(real s, real2 v)
-// {
-//     return {s*v.x, s*v.y};
-// }
-
-// real2 operator*(real2 v, real s)
-// {
-//     return {s*v.x, s*v.y};
-// }
-
-// real2 operator*=(real2& v, real s)
-// {
-//     return v=v*s;
-// }
-
-// real dot(real2 a, real2 b)
-// {
-//     return a.x*b.x+a.y*b.y;
-// }
-
 struct particle
 {
     real2 r;
@@ -51,7 +15,7 @@ int mymain()
     window_t wnd = create_window("Test Window", "test window");
 
     load_default_programs();
-    gl_init_general_buffers();
+    gl_init_general_buffers(); //TODO: put this somewhere else for better platform independence
 
     log_output("created window\n");
     show_window(wnd);
