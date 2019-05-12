@@ -69,6 +69,6 @@ define_printer(double a, ("%f", a));
 
 #define log_output(...) (__printer__, __VA_ARGS__)
 
-#define assert(this_is_true, ...) {if(!(this_is_true)) {log_error(__VA_ARGS__);}}
+#define assert(this_is_true, ...) {if(!(this_is_true)) {log_error("assert(", #this_is_true, "): ", __VA_ARGS__);}}
 
 #endif //LOGGING

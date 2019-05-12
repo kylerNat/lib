@@ -89,6 +89,11 @@ type norm(typeN a)
     return sqrt(dot(a, a));
 }
 
+type normsq(typeN a)
+{
+    return (dot(a, a));
+}
+
 typeN normalize(typeN a)
 {
     return invsqrt(dot(a, a))*a;

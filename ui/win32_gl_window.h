@@ -89,10 +89,12 @@ __inline int load_file(char* filename, char* output)
 
 char* load_file_0_terminated(char* filename)
 {
-    char* output = (char*) free_memory;
+    int mem_id = reserve_stack();
+    char* output = (char*) memory_stack_memory[mem_id];
     size_t output_size = load_file(filename, output);
     output[output_size] = 0;
-    permalloc(output_size+1);
+    memory_stack_memory[mem_id] += output_size+1;
+    unreserve_stack(mem_id);
     return output;
 }
 
@@ -147,9 +149,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         case WM_SIZE:
         {
             // //TODO: set correct context
-            auto window_width = LOWORD(lParam);
-            auto window_height = HIWORD(lParam);
-            glViewport(0.5*(window_width-window_height), 0, window_height, window_height);
+            window_width = LOWORD(lParam);
+            window_height = HIWORD(lParam);
+            glViewport(0, 0, window_width, window_height);
+            // glViewport(0.5*(window_width-window_height), 0, window_height, window_height);
+            // glViewport(0, 0.5*(window_height-window_width), window_width, window_width);
             break;
         }
         default:
@@ -313,7 +317,7 @@ int update_window(window_t wnd)
 
     real gamma = 2.2;
     // glClearColor(pow(0.2, gamma), pow(0.0, gamma), pow(0.3, gamma), 1.0);
-    glClearColor(0.25, 0.0, 0.35, 1.0);
+    // glClearColor(0.25, 0.0, 0.35, 1.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     return 1;

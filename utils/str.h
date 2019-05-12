@@ -23,6 +23,7 @@ bool operator==(strand str, int a)
 
 define_printer(strand s, ("%.*s", s.len, s.str));
 
+//TODO: is there a reason I didn't just use '\t'?
 #define TAB 9 //tab character
 
 #define isspace(a) ((a) == ' ' || (a) == TAB)
@@ -38,14 +39,19 @@ define_printer(strand s, ("%.*s", s.len, s.str));
 #define ishexdigit(a) (isdigit(a) || ('a' <= (a) && (a) <= 'f') || ('A' <= (a) && (a) <= 'F'))
 #define isbit(a) (('0' <= (a) && (a) <= '9'))
 
+void skip_whitespace(char*& code)
+{
+    while(*code && isspace(*code)) code++;
+}
+
 void skip_whitespace_and_newline(char*& code)
 {
-    while(isspace(*code) || isnewline(*code)) code++;
+    while(*code && (isspace(*code) || isnewline(*code))) code++;
 }
 
 void skip_newline(char*& code)
 {
-    while(isnewline(*code)) code++;
+    while(*code && isnewline(*code)) code++;
 }
 
 void goto_next_line(char*& code)
@@ -88,6 +94,11 @@ bool equal(char* a, char* b)
     return a && b && strcmp(a, b) == 0;
 }
 
+bool equal(char* a, const char* b)
+{
+    return a && b && strcmp(a, b) == 0;
+}
+
 bool equal(char* a, char* b, int size)
 {
     return a && b && strncmp(a, b, size) == 0;
@@ -105,6 +116,19 @@ int find(char* code, char c)
     return i;
 }
 
+int find_oneof(char* code, char* cs)
+{
+    int i = 0;
+    while(code[i])
+    {
+        for(char* c = cs; *c != 0; c++)
+            if(code[i] == *c)
+                return i;
+        i++;
+    }
+    return i;
+}
+
 int find(char* code, char* s)
 {
     int i = 0;
@@ -116,12 +140,14 @@ struct concat_helper
 {
     char* s;
     int len;
+    int mem_id;
 };
 
 concat_helper init_concat_helper()
 {
     concat_helper helper;
-    helper.s = (char*) malloc(1024); //TODO: this is shitty, fix it
+    helper.mem_id = reserve_stack();
+    helper.s = (char*) memory_stack_memory[helper.mem_id];
     *helper.s = 0;
     helper.len = 0;
     return helper;
@@ -129,14 +155,14 @@ concat_helper init_concat_helper()
 
 concat_helper operator,(concat_helper helper, char* s)
 {
-    strcat_s(helper.s, available_free_memory(), s);
+    strcat_s(helper.s, available_free_memory(helper.mem_id), s);
     helper.len += strlen(s);
     return helper;
 }
 
 concat_helper operator,(concat_helper helper, const char* s)
 {
-    strcat_s(helper.s, available_free_memory(), s);
+    strcat_s(helper.s, available_free_memory(helper.mem_id), s);
     helper.len += strlen(s);
     return helper;
 }
@@ -171,7 +197,8 @@ concat_helper operator,(concat_helper helper, int x)
 
 char* finalize_concat(concat_helper helper)
 {
-    permalloc(helper.len);
+    memory_stack_memory[helper.mem_id] += helper.len+1;
+    unreserve_stack(helper.mem_id);
     return helper.s;
 }
 

@@ -8,6 +8,8 @@
 #define pi (3.14159265358979323846264338327950)
 #define e (2.718281828)
 
+#define lerp(a, b, t) ((a)*(1-t) + (b)*(t))
+
 #define sq(a) ((a)*(a))
 
 typedef float real;
@@ -135,7 +137,7 @@ real3 cross(real3 a, real3 b)
 /* multiplies two 2d vectors in R^2 as if they were complex numbers
  * i.e. the result is a vector with the magnitude |a||b|,
  * and an angle with the x axis that is the sum of the original angles*/
-real2 rotation_multiply(real2 a, real2 b)
+real2 complexx(real2 a, real2 b)
 {
     return {a.x*b.x-a.y*b.y,
             a.x*b.y+a.y*b.x};

@@ -61,6 +61,7 @@ vi_buffer vi_circle;
 
 void APIENTRY gl_error_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, const void* userParam)
 {
+    #ifndef GL_SUPPRESS_WARNINGS
     switch(severity)
     {
         case DEBUG_SEVERITY_HIGH:
@@ -77,6 +78,7 @@ void APIENTRY gl_error_callback(GLenum source, GLenum type, GLuint id, GLenum se
             break;
     }
     log_output(message, "\n\n");
+    #endif //GL_SUPPRESS_WARNINGS
 }
 
 vi_buffer create_vertex_and_index_buffer(uint vb_size, void * vb_data,
@@ -141,10 +143,12 @@ GLuint init_shader(shader_source source)
     if(error == GL_FALSE)
     {
         int info_log_len = -1;
-        char* info_log = (char*) free_memory;
-        glGetShaderInfoLog(shader, free_memory_size, &info_log_len, info_log);
+        int mem_id = reserve_stack();
+        char* info_log = (char*) memory_stack_memory[mem_id];
+        glGetShaderInfoLog(shader, available_free_memory(mem_id), &info_log_len, info_log);
         log_output("info log is ", info_log_len, " characters long\n");
         assert(0, "could not compile shader ", source.filename, ":\n", info_log);
+        unreserve_stack(mem_id);
     }
 
     return shader;
@@ -155,7 +159,8 @@ GLuint init_program(size_t n_shaders, shader_source* sources)
     GLuint program = glCreateProgram();
     assert(program, "could not create program, GL error ", glGetError());
 
-    GLuint* shaders = (GLuint*) free_memory; //TODO: this is not super safe since other functions might also use free_memory
+    int mem_id = reserve_stack();
+    GLuint* shaders = (GLuint*) memory_stack_memory[mem_id];
     for(int i = 0; i < n_shaders; i++)
     {
         shaders[i] = init_shader(sources[i]);
@@ -168,9 +173,11 @@ GLuint init_program(size_t n_shaders, shader_source* sources)
     glGetProgramiv(program, GL_LINK_STATUS, &error);
     if(error == 0)
     {
-        char* info_log = (char*) free_memory;
-        glGetProgramInfoLog(program, free_memory_size, 0, info_log);
+        int mem_id = reserve_stack();
+        char* info_log = (char*) memory_stack_memory[mem_id];
+        glGetProgramInfoLog(program, available_free_memory(mem_id), 0, info_log);
         assert(0, info_log);
+        unreserve_stack(mem_id);
     }
 
     for(int i = 0; i < n_shaders; i++)
@@ -178,6 +185,7 @@ GLuint init_program(size_t n_shaders, shader_source* sources)
         glDetachShader(program, shaders[i]);
         glDeleteShader(shaders[i]);
     }
+    unreserve_stack(mem_id);
     return program;
 }
 
@@ -322,7 +330,7 @@ define_program(
         ), //TODO: reduce repetition of this stuff
     ( //uniforms
         "t",
-        "tex"),
+        "res"),
     ( //shaders
     {GL_VERTEX_SHADER, "<default 2d circle vertex shader>",
             DEFAULT_HEADER SHADER_SOURCE(
@@ -334,15 +342,16 @@ define_program(
 
                 smooth out vec4 color;
                 smooth out vec2 uv;
-                smooth out float sharpness;
+                smooth out float r_px;
 
                 uniform mat3 t;
+                uniform float res;
 
                 void main()
                 {
                     gl_Position.xyz = t*(x*r+X);
-                    uv = 0.5*(x.xy+vec2(1,1));// vert_uv;
-                    sharpness = r;
+                    uv = res*0.5*(x.xy*r);
+                    r_px = res*0.5*r;
                     color = c;
                 }
                 /*/////////////////////////////////////////////////////////////*/)},
@@ -353,16 +362,16 @@ define_program(
 
                 smooth in vec4 color;
                 smooth in vec2 uv;
-                smooth in float sharpness;
+                smooth in float r_px;
 
-                uniform sampler2D tex;
+                // uniform sampler2D tex;
 
                 void main()
                 {
-                    vec2 r = 2*(uv-vec2(0.5, 0.5));
+                    vec2 r = uv;
                     frag_color = color;
                     //TODO: the sharpness scaling should be resolution dependent
-                    frag_color.a *= smoothstep(1.0, 1.0-1.0/(250*sharpness), length(r));
+                    frag_color.a *= smoothstep(r_px, r_px-1, length(r));
                 }
                 /*/////////////////////////////////////////////////////////////*/)}
         ));
@@ -433,6 +442,10 @@ void gl_init_general_buffers()
 #define add_interleaved_attribute(dim, gl_type, do_normalize, stride)   \
     add_attribute_common(dim, gl_type, do_normalize, stride, dim*gl_get_type_size(gl_type), 1);
 
+//TODO:
+int window_width = 1;
+int window_height = 1;
+
 void draw_circles(circle_render_info* circles, int n_circles)
 {
     GLuint circle_buffer = gl_general_buffers[0];
@@ -441,11 +454,12 @@ void draw_circles(circle_render_info* circles, int n_circles)
 
     //TODO: let this be controlled
     real transform[] = {
-        1, 0, 0,
-        0, 1, 0,
+        1.0*window_height/window_width, 0, 0,
+        0, 1.0, 0,
         0, 0, 1,
     };
     glUniformMatrix3fv(pinfo_circle.uniforms[0], 1, true, transform);
+    glUniform1f(pinfo_circle.uniforms[1], window_height);
 
     glBindBuffer(GL_ARRAY_BUFFER, circle_buffer);
 

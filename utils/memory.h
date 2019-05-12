@@ -6,60 +6,76 @@
 #define platform_big_alloc(size) malloc(size)
 #endif
 
+#include <utils/logging.h>
 #include <utils/misc.h>
 
-byte* free_memory;
-size_t free_memory_size;
+#ifndef N_MEMORY_STACKS
+#define N_MEMORY_STACKS 4
+#endif
 
-byte* free_memory_start;
-byte* free_memory_end;
+byte* memory_stack_memory[N_MEMORY_STACKS];
+size_t memory_stack_size[N_MEMORY_STACKS];
+byte* memory_stack_start[N_MEMORY_STACKS];
+byte* memory_stack_end[N_MEMORY_STACKS];
+bool memory_stack_available[N_MEMORY_STACKS];
 
 int init_memory()
 {
-    free_memory_size = 1*gigabyte;
-    free_memory = (byte*) platform_big_alloc(free_memory_size);
-    free_memory_start = free_memory;
-    free_memory_end = free_memory+free_memory_size;
-    assert(free_memory, "could not allocate free memory pool");
+
+    for(int i = 0; i < N_MEMORY_STACKS; i++)
+    {
+        memory_stack_size[i] = 500*megabyte;
+        memory_stack_memory[i] = (byte*) platform_big_alloc(memory_stack_size[i]);
+        memory_stack_start[i] = memory_stack_memory[i];
+        memory_stack_end[i] = memory_stack_memory[i]+memory_stack_size[i];
+        memory_stack_available[i] = true;
+        assert(memory_stack_memory[i], "could not allocate free memory pool #", i);
+    }
     return 0;
 }
 static int _ = init_memory();
 
+//TODO: should add some randomization so that no single stack gets used a lot more
+
 void* permalloc(size_t size)
 {
-    void* out = free_memory;
-    free_memory += size;
-    return out;
+    for(int i = 0; i < N_MEMORY_STACKS; i++)
+    {
+        if(memory_stack_available[i] && memory_stack_end[i]-memory_stack_memory[i] > size)
+        {
+            void* out = memory_stack_memory[i];
+            memory_stack_memory[i] += size;
+            return out;
+        }
+    }
+    //TODO: should probably allocate more here or something
+    assert("no free stacks available for permanent allocation of ", size, " bytes");
+    return 0;
 }
 
-size_t available_free_memory()
+int reserve_stack()
 {
-    return free_memory-free_memory_start;
+    for(int i = 0; i < N_MEMORY_STACKS; i++)
+    {
+        if(memory_stack_available[i])
+        {
+            memory_stack_available[i] = false;
+            return i;
+        }
+    }
+    //TODO: should probably allocate more here or something
+    assert("no free stacks available for reservation");
+    return -1;
 }
 
-// #define MAX_MEMORY_BLOCKS 100
-// #define MEMORY_BLOCK_SIZE 1024*1024*1024
-// //linked list of large memory blocks, never get deallocated
-// struct memory_block
-// {
-//     void* block_start;
-//     void* block_end;
-//     memory_block* prev;
-//     memory_block* next;
-// };
+void unreserve_stack(int i)
+{
+    memory_stack_available[i] = true;
+}
 
-// memory_block current_block;
-// void*
-
-// void init_memory()
-// {
-//     current_block = (memory_block*) malloc(MAX_MEMORY_BLOCKS*sizeof(memory_block));
-// }
-
-// //allocates some memory which should be held for the life of the program
-// byte* permalloc(int size)
-// {
-//     if
-// }
+size_t available_free_memory(int i)
+{
+    return memory_stack_end[i]-memory_stack_memory[i];
+}
 
 #endif //MEMORY
